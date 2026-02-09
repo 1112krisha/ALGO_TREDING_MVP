@@ -1,5 +1,5 @@
 {
-  "installCommand": "cd frontend && npm ci",
+  "installCommand": "uv pip install --system -r requirements.txt && cd frontend && npm ci",
   "buildCommand": "cd frontend && npm run build",
   "framework": "fastapi"
 }
