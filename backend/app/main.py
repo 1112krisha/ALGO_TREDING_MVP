@@ -5,10 +5,12 @@ Production-style backend for paper trading automation.
 Supports strategy creation, execution, and PnL tracking.
 """
 
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.database import init_db
 from app.routes import auth, strategies, trades
@@ -18,14 +20,16 @@ from app.services.trading_engine import TradingEngine
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle: startup and shutdown."""
-    # Startup: Initialize database and start trading engine
     await init_db()
-    engine = TradingEngine()
-    await engine.start()
-    app.state.trading_engine = engine
-    yield
-    # Shutdown: Stop trading engine
-    await engine.stop()
+    # Skip trading engine on Vercel (serverless - no persistent processes)
+    if not os.environ.get("VERCEL"):
+        engine = TradingEngine()
+        await engine.start()
+        app.state.trading_engine = engine
+        yield
+        await engine.stop()
+    else:
+        yield
 
 
 app = FastAPI(
@@ -50,6 +54,7 @@ app.add_middleware(
         "http://localhost:3003",
         "http://127.0.0.1:3003",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -63,13 +68,11 @@ app.include_router(trades.router, prefix="/api/trades", tags=["Trades"])
 
 @app.get("/")
 async def root():
-    """Root - redirect to docs."""
-    return {
-        "message": "Algo Trading MVP API",
-        "docs": "/docs",
-        "health": "/health",
-        "api": "/api/auth, /api/strategies, /api/trades",
-    }
+    """Root - API info when no frontend, else frontend serves."""
+    if os.path.exists(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")):
+        from fastapi.responses import FileResponse
+        return FileResponse(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist", "index.html"))
+    return {"message": "Algo Trading MVP API", "docs": "/docs", "health": "/health"}
 
 
 @app.get("/health")
@@ -87,3 +90,9 @@ async def api_info():
         "strategies": "/api/strategies",
         "trades": "/api/trades",
     }
+
+
+# Serve React frontend (for Vercel) - mount last so API routes take precedence
+_static_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+if os.path.exists(_static_dir):
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="static")
