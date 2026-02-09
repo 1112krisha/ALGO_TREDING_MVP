@@ -1,4 +1,8 @@
 {
-  "buildCommand": "pip install -r backend/requirements.txt && cd frontend && npm ci && npm run build",
-  "framework": "fastapi"
+  "installCommand": "pip install --target ./vendor -r backend/requirements.txt && cd frontend && npm ci",
+  "buildCommand": "cd frontend && npm run build",
+  "framework": "fastapi",
+  "env": {
+    "PYTHONPATH": "./vendor"
+  }
 }
