@@ -1,0 +1,12 @@
+# Render Blueprint - Deploy from GitHub
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: algo-trading-mvp
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///./data/algo_trading.db
